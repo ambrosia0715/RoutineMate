@@ -1,0 +1,181 @@
+# ============================================
+# 🧭 RoutineMate Codex 빌드 스크립트 (CLI 불필요)
+# Flutter + Firebase + AdMob + 확장 기능 + Android 배포 자동화
+# 파일명: routine_mate_final_build.yaml
+# ============================================
+
+pipeline:
+  name: "RoutineMate Codex 빌드 & 배포 자동화"
+  steps:
+
+    # ----------------------------------------
+    # 1️⃣ 프로젝트 생성 및 기본 패키지 추가
+    # ----------------------------------------
+    - name: "Flutter 프로젝트 생성"
+      run: |
+        create flutter-app "routine_mate"
+        add packages "firebase_core firebase_auth cloud_firestore flutter_tts flutter_local_notifications google_mobile_ads provider intl"
+        write description "RoutineMate는 루틴을 등록하면 지정된 시간마다 TTS와 알림으로 시작, 중간, 종료 상태를 알려 주고 루틴 수행률을 리포트로 보여 주는 루틴 관리 앱입니다. 각 루틴은 10분 단위로 설정하며 시간이 겹치지 않도록 검증합니다. 하단에는 Google AdMob 광고가 표시됩니다."
+
+    # ----------------------------------------
+    # 2️⃣ Firebase 설정 복사 및 초기화
+    # ----------------------------------------
+    - name: "Firebase 설정 파일 복사"
+      run: |
+        mkdir -p android/app
+        cp ./google-services.json ./android/app/google-services.json
+        write guide "Firebase 설정 절차:\n1. Firebase 콘솔에서 RoutineMate 프로젝트 생성\n2. Android 앱 등록 (패키지명: com.routinemate.app)\n3. google-services.json을 최상위 폴더에 두고 android/app으로 복사\n4. flutterfire configure 명령으로 firebase_options.dart 생성"
+
+    - name: "Firebase 초기화 코드 작성"
+      run: |
+        write code "lib/main.dart" \
+          --language "dart" \
+          --content "
+        import 'package:flutter/material.dart';
+        import 'package:firebase_core/firebase_core.dart';
+        import 'firebase_options.dart';
+        import 'package:google_mobile_ads/google_mobile_ads.dart';
+
+        void main() async {
+          WidgetsFlutterBinding.ensureInitialized();
+          await Firebase.initializeApp(
+            options: DefaultFirebaseOptions.currentPlatform,
+          );
+          await MobileAds.instance.initialize();
+          runApp(const RoutineMateApp());
+        }
+
+        class RoutineMateApp extends StatelessWidget {
+          const RoutineMateApp({super.key});
+
+          @override
+          Widget build(BuildContext context) {
+            return MaterialApp(
+              title: 'RoutineMate',
+              debugShowCheckedModeBanner: false,
+              home: Scaffold(
+                body: Center(child: Text('RoutineMate 초기 설정 완료 🚀')),
+              ),
+            );
+          }
+        }
+        "
+
+    # ----------------------------------------
+    # 3️⃣ 로그인 화면 구성
+    # ----------------------------------------
+    - name: "로그인 화면 생성"
+      run: |
+        generate screen "login_screen" \
+          --fields "이메일, 비밀번호, 로그인 버튼, 회원가입 버튼, 비회원 체험 버튼" \
+          --logic "Firebase Auth 로그인, 회원가입, 게스트 모드" \
+          --style "심플하고 직관적인 UI, 앱 로고 포함"
+
+    # ----------------------------------------
+    # 4️⃣ 홈 화면 (24시간 루틴 그래프 + 광고)
+    # ----------------------------------------
+    - name: "홈 화면 생성"
+      run: |
+        generate screen "home_screen" \
+          --elements "24시간 원형 그래프, 루틴 리스트, 날짜 선택 캘린더, 하단 배너 광고" \
+          --library "fl_chart" \
+          --style "미니멀, 시간대별 루틴 시각화"
+
+    # ----------------------------------------
+    # 5️⃣ 루틴 등록 및 관리
+    # ----------------------------------------
+    - name: "루틴 등록 기능 추가"
+      run: |
+        generate screen "add_routine_screen" \
+          --fields "루틴명, 시작 시간, 종료 시간, 반복 요일, TTS 문구, 알림 문구" \
+          --validation "시간 10분 단위, 겹치는 시간 자동 검사" \
+          --logic "Firestore 중복 검증 및 저장"
+
+    # ----------------------------------------
+    # 6️⃣ TTS 및 알림 모듈
+    # ----------------------------------------
+    - name: "TTS와 알림 모듈 생성"
+      run: |
+        generate module "tts_module" \
+          --description "루틴 시작/중간/종료 시 flutter_tts로 음성 안내"
+        generate module "notification_module" \
+          --description "루틴 시작 시간에 flutter_local_notifications로 알림 예약"
+
+    # ----------------------------------------
+    # 7️⃣ 리포트 화면 (기본)
+    # ----------------------------------------
+    - name: "리포트 화면 구성"
+      run: |
+        generate screen "report_screen" \
+          --charts "루틴 수행률 막대 차트, 주별 시간 도넛 차트" \
+          --stats "주간 성공률, 평균 수행 시간"
+
+    # ----------------------------------------
+    # 8️⃣ AdMob 광고 설정
+    # ----------------------------------------
+    - name: "AdMob 설정"
+      run: |
+        write guide "AdMob 설정:\n- App ID: ca-app-pub-1444459980078427~7187235817\n- AndroidManifest.xml <application> 내부에 메타데이터 추가:\n  <meta-data\n      android:name='com.google.android.gms.ads.APPLICATION_ID'\n      android:value='ca-app-pub-1444459980078427~7187235817' />"
+        generate component "ad_banner_widget" \
+          --description "Google AdMob 하단 배너 (RoutineMate App ID 사용)" \
+          --library "google_mobile_ads" \
+          --props "adUnitId='ca-app-pub-1444459980078427~7187235817', position=bottom"
+        integrate component "ad_banner_widget" into "home_screen, report_screen, add_routine_screen"
+
+    # ----------------------------------------
+    # 9️⃣ 확장 기능 통합
+    # ----------------------------------------
+    - name: "RoutineMate 확장 기능 추가"
+      run: |
+        generate module "routine_repeat_options" \
+          --description "루틴 반복 옵션: 매일, 주중, 주말, 사용자 지정 요일"
+        generate function "pause_routine" \
+          --logic "루틴 일시 비활성화 및 알림 중단"
+        generate function "duplicate_routine" \
+          --logic "기존 루틴을 복제해 새 루틴 생성"
+        generate screen "routine_feedback_dialog" \
+          --elements "감정 아이콘(😀~😞), 만족도(1~5), 메모 입력"
+        extend screen "report_screen" \
+          --add "감정 추세 라인 차트, 메모 하이라이트"
+        generate screen "notification_settings" \
+          --fields "알림음, 진동, 음성 속도, 목소리 선택"
+        generate module "routine_widget" \
+          --description "홈 화면 위젯으로 오늘 루틴 상태 표시"
+        generate module "routine_backup" \
+          --description "루틴 로그/백업 자동 저장 및 복원"
+        generate component "rewarded_ad_widget" \
+          --description "루틴 확장/프리미엄 체험 보상형 광고" \
+          --library "google_mobile_ads" \
+          --props "adUnitId='ca-app-pub-1444459980078427~7187235817'"
+        generate module "firebase_messaging" \
+          --description "3일 미접속 사용자에게 리마인더 푸시 전송"
+
+    # ----------------------------------------
+    # 🔟 프리미엄 구독 전략
+    # ----------------------------------------
+    - name: "프리미엄 구독 설정"
+      run: |
+        generate screen "premium_info_screen" \
+          --elements "프리미엄 혜택 설명, 결제 버튼, 구독 상태 표시" \
+          --logic "Google Play Billing 연동"
+        update section "프리미엄 정책" \
+          --content "프리미엄: 무제한 루틴, 광고 제거, 고급 TTS, 감정 리포트 포함 (월 4,900원 / 연 39,000원)"
+
+    # ----------------------------------------
+    # 11️⃣ Android 빌드 및 배포
+    # ----------------------------------------
+    - name: "Android 빌드 준비 및 배포"
+      run: |
+        configure build "Android release 빌드 설정"
+        prepare publish \
+          --google-play "RoutineMate - 루틴 관리 자동 알림 & 프리미엄 구독 포함" \
+          --version "1.0.0" \
+          --release-notes "정식 출시: 루틴 관리, 실행 알림, 리포트, 광고 및 프리미엄 기능 포함"
+
+    # ----------------------------------------
+    # ✅ 최종 실행
+    # ----------------------------------------
+    - name: "RoutineMate 파이프라인 실행"
+      run: |
+        run pipeline "RoutineMate Final Build" \
+          --steps "Firebase 등록, 홈/로그인, 알림/TTS, 리포트/확장 기능, 광고, 프리미엄, 빌드/배포"
