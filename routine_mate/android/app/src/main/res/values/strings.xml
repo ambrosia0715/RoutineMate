@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">RoutineMate</string>
+    
+    <!-- Firebase Configuration from google-services.json -->
+    <string name="default_web_client_id" translatable="false">749231411389-5sn45mdom08r1g4q60im220uq3jjebpm.apps.googleusercontent.com</string>
+    <string name="firebase_database_url" translatable="false">https://routinemate-5ff74.firebaseio.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">749231411389</string>
+    <string name="google_api_key" translatable="false">AIzaSyAS8Zm-FTxVBeoaBs4tML3QHV3lRrMVGYs</string>
+    <string name="google_app_id" translatable="false">1:749231411389:android:999db9d25ca36ad52067d4</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyAS8Zm-FTxVBeoaBs4tML3QHV3lRrMVGYs</string>
+    <string name="google_storage_bucket" translatable="false">routinemate-5ff74.firebasestorage.app</string>
+    <string name="project_id" translatable="false">routinemate-5ff74</string>
+</resources>
