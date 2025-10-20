@@ -88,3 +88,10 @@ lib/generated_plugin_registrant.dart
 !**/ios/**/default.mode2v3
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
+
+# Firebase config (do NOT commit secrets)
+# Android
+**/google-services.json
+# iOS
+**/GoogleService-Info.plist
+**/firebase_app_id_file.json

@@ -4,7 +4,9 @@ import 'firebase_options.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
+import 'screens/login_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +34,24 @@ class RoutineMateApp extends StatelessWidget {
       title: 'RoutineMate',
       theme: ThemeData(primarySwatch: Colors.indigo, useMaterial3: true),
       debugShowCheckedModeBanner: false,
-      home: const RoutineHomeScreen(),
+      home: StreamBuilder<User?>(
+        stream: FirebaseAuth.instance.authStateChanges(),
+        builder: (context, snapshot) {
+          // 로딩 중
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          // 로그인된 경우 홈 화면, 아닌 경우 로그인 화면
+          if (snapshot.hasData) {
+            return const RoutineHomeScreen();
+          } else {
+            return const LoginScreen();
+          }
+        },
+      ),
     );
   }
 }
@@ -155,8 +174,12 @@ class _RoutineHomeScreenState extends State<RoutineHomeScreen> {
   }
 
   void _listenRoutines() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
     _sub = FirebaseFirestore.instance
         .collection('routines')
+        .where('userId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
         .snapshots()
         .listen(
@@ -186,9 +209,13 @@ class _RoutineHomeScreenState extends State<RoutineHomeScreen> {
 
   // 인덱스가 없을 경우 대체 메서드
   void _listenRoutinesWithoutOrder() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) return;
+
     _sub?.cancel();
     _sub = FirebaseFirestore.instance
         .collection('routines')
+        .where('userId', isEqualTo: userId)
         .snapshots()
         .listen(
           (snapshot) {
@@ -225,7 +252,14 @@ class _RoutineHomeScreenState extends State<RoutineHomeScreen> {
       return;
     }
 
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+    if (userId == null) {
+      _showSnackBar('로그인이 필요합니다.');
+      return;
+    }
+
     final data = {
+      'userId': userId,
       'title': _title.text,
       'start': _start!.format(context),
       'end': _end!.format(context),
@@ -371,6 +405,8 @@ class _RoutineHomeScreenState extends State<RoutineHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
+
     return Scaffold(
       appBar: AppBar(
         title: Row(
@@ -388,6 +424,60 @@ class _RoutineHomeScreenState extends State<RoutineHomeScreen> {
         elevation: 2,
         backgroundColor: Colors.white,
         foregroundColor: Colors.indigo.shade700,
+        actions: [
+          // 사용자 정보 표시
+          if (user != null)
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: Center(
+                child: Text(
+                  user.displayName ?? user.email?.split('@')[0] ?? 'User',
+                  style: TextStyle(fontSize: 12, color: Colors.indigo.shade700),
+                ),
+              ),
+            ),
+          // 로그아웃 버튼
+          PopupMenuButton<String>(
+            icon: Icon(Icons.more_vert, color: Colors.indigo.shade700),
+            onSelected: (value) async {
+              if (value == 'logout') {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('로그아웃'),
+                    content: const Text('정말 로그아웃하시겠습니까?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, false),
+                        child: const Text('취소'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.pop(context, true),
+                        child: const Text('로그아웃'),
+                      ),
+                    ],
+                  ),
+                );
+
+                if (confirm == true && mounted) {
+                  await FirebaseAuth.instance.signOut();
+                }
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 12),
+                    Text('로그아웃'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [

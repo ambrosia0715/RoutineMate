@@ -16,11 +16,14 @@
 ## ✨ 주요 기능
 
 ### 🎯 핵심 기능
+- ✅ **사용자 인증**: 이메일/비밀번호 및 Google 소셜 로그인
+- ✅ **사용자별 데이터 분리**: 각 사용자의 루틴 개별 관리
 - ✅ **루틴 관리**: 시작/종료 시간 설정으로 체계적인 일정 관리
 - 🔔 **스마트 알림**: 시작/중간/종료 시점 자동 알림
 - 🔊 **음성 안내**: 한국어 TTS로 실시간 피드백
 - ☁️ **클라우드 동기화**: Firebase Firestore 실시간 데이터베이스
 - 🎨 **Modern UI**: Material Design 3 적용
+- 🔐 **안전한 보안**: Firebase Authentication + Firestore 보안 규칙
 
 ### 🎨 새로운 디자인
 - 💎 **커스텀 로고**: 그라디언트 효과의 아름다운 로고
@@ -68,10 +71,34 @@ flutter pub get
 
 ### 3. Firebase 설정
 1. Firebase 콘솔에서 프로젝트 생성
-2. `google-services.json` 다운로드 → `android/app/` 에 배치
-3. FlutterFire CLI로 설정:
+2. **Authentication 활성화**:
+   - 이메일/비밀번호 사용 설정
+   - Google 로그인 사용 설정
+3. **Firestore Database 생성**:
+   - 테스트 모드로 시작
+   - 보안 규칙 업데이트 (아래 참조)
+4. `google-services.json` 다운로드 → `android/app/` 에 배치
+5. FlutterFire CLI로 설정:
 ```bash
 flutterfire configure
+```
+
+#### Firestore 보안 규칙:
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+    match /routines/{routineId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+  }
+}
 ```
 
 ### 4. 앱 실행
@@ -86,7 +113,9 @@ flutter run
 ```yaml
 dependencies:
   firebase_core: ^4.2.0
+  firebase_auth: ^6.1.1
   cloud_firestore: ^6.0.3
+  google_sign_in: ^6.2.2
   flutter_tts: ^4.2.3
   flutter_local_notifications: ^19.5.0
   provider: ^6.1.5+1
@@ -107,13 +136,28 @@ RoutineMate의 커스텀 로고는 다음을 상징합니다:
 
 ## 📖 문서
 
+- [AUTHENTICATION_GUIDE.md](AUTHENTICATION_GUIDE.md) - 인증 시스템 완전 가이드
+- [FIREBASE_AUTH_SETUP.md](FIREBASE_AUTH_SETUP.md) - Firebase Console 설정 가이드
 - [FEATURES.md](FEATURES.md) - 전체 기능 설명
 - [QUICKSTART.md](QUICKSTART.md) - 빠른 시작 가이드
 - [LOGO_DESIGN.md](LOGO_DESIGN.md) - 로고 디자인 가이드
+- [FIRESTORE_TROUBLESHOOTING.md](FIRESTORE_TROUBLESHOOTING.md) - 문제 해결
+- [FIREBASE_RULES.md](FIREBASE_RULES.md) - 보안 규칙
 
 ---
 
 ## 🎯 사용 방법
+
+### 회원가입 / 로그인
+1. 앱 실행 → 로그인 화면
+2. **이메일/비밀번호로 가입**:
+   - "회원가입" 클릭
+   - 이름, 이메일, 비밀번호 입력
+   - 회원가입 완료 후 로그인
+3. **Google로 로그인**:
+   - "Google로 로그인" 클릭
+   - Google 계정 선택
+   - 자동으로 로그인 완료
 
 ### 루틴 추가
 1. 루틴 제목 입력
